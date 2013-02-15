@@ -17,6 +17,7 @@ import javax.persistence.Embedded;
 import javax.persistence.Entity;
 import javax.persistence.JoinColumn;
 import javax.persistence.PrimaryKeyJoinColumn;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
 import dto.Parameters;
@@ -41,8 +42,62 @@ public class MappingDBChecker {
 		Map<Class<?>, String> newTableNames = getTabelaNames(colunasPorTabelas, mapeamentoPorClasse);
 		Map<String, List<String>> newColumnPerTableNames = getNewColumnNames(newTableNames, mapeamentoPorClasse, colunasPorTabelas);
 		System.out.println(newColumnPerTableNames);
+		
+		//COMPARAR SEQUENCES
+		List<String> sequences = getSequences();
+		List<String> sequencesMapping = getSequencesMapping(classes);
+		comparaSequences(sequences, sequencesMapping);
+		
 	}
 	
+	
+	private static void comparaSequences(List<String> sequences, List<String> sequencesMapping) {
+		int indice=0, menorIndice = Integer.MAX_VALUE;
+		String sequenceEscolhida="";
+		
+		System.out.println();
+		System.out.println("Comparacao de Sequences");
+		System.out.println("  BD	->   Mapeamento");
+		for(String sequence : sequences){
+			for(String sequenceMapping : sequencesMapping) {
+				indice = comparaStrings(sequence, sequenceMapping);
+				if(indice<menorIndice){
+					menorIndice=indice;
+					sequenceEscolhida=sequenceMapping;
+				}
+			}
+			String iniPrint="  ";
+			if(!sequenceEscolhida.toLowerCase().equals(sequence.toLowerCase())){
+				iniPrint=iniPrint.replaceFirst(" ", "X");
+			}
+			System.out.println(iniPrint+sequence + "->" + sequenceEscolhida);
+			menorIndice = Integer.MAX_VALUE;
+		}
+	}
+
+
+	private static List<String> getSequencesMapping(List<Class<?>> classes) {
+		List<String> sequencesMapping  = new ArrayList<String>();
+		
+		for(Class<?> clazz : classes){
+			SequenceGenerator sequenceMapping = clazz.getAnnotation(SequenceGenerator.class);
+			if(sequenceMapping!=null)
+				sequencesMapping.add(sequenceMapping.sequenceName());
+		}
+		return sequencesMapping;
+	}
+
+
+	public static List<String> getSequences() throws Exception {
+		List<String> sequences  = new ArrayList<String>();
+		Connection conn = getConnection();
+		
+		ResultSet rs = conn.createStatement().executeQuery("select * from user_sequences");
+		while(rs.next()){
+			sequences.add(rs.getString("SEQUENCE_NAME"));
+		}
+		return sequences;
+	}
 
 	private static Map<String, List<String>> getNewColumnNames(Map<Class<?>, String> newTableNames, Map<Class<?>, List<String>> mapeamentoPorClasse, Map<String, List<String>> colunasPorTabelas ) {
 		Map<String, List<String>> newColumnPerTableNames = new HashMap<String, List<String>>();
@@ -82,6 +137,7 @@ public class MappingDBChecker {
 		Map<Class<?>, String> tableEMapeamento=new HashMap<Class<?>, String>();
 		int menorIndice=Integer.MAX_VALUE, indice;
 		String tabelaEscolhida="";
+		System.out.println("NOME DE TABELAS:"); System.out.println();
 		for(String tabela: colunasPorTabelas.keySet()){
 			Class<?> classEscolhida=null;
 			for(Class<?> clazz : mapeamentoPorClasse.keySet()){
@@ -97,6 +153,13 @@ public class MappingDBChecker {
 						
 				}
 			}
+			
+			String iniPrint="  ";
+			if(!classEscolhida.getAnnotation(Table.class).name().toLowerCase().equals(tabelaEscolhida.toLowerCase())){
+				iniPrint=iniPrint.replaceFirst(" ", "X");
+			}
+			System.out.println(iniPrint+classEscolhida.getAnnotation(Table.class).name() + "->" + tabelaEscolhida);
+			
 			tableEMapeamento.put(classEscolhida, tabelaEscolhida);
 			menorIndice=Integer.MAX_VALUE;
 		}
